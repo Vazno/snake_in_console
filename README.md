@@ -8,8 +8,6 @@ Use the following keys to control the snake:
     down: "s"
     left: "a"
     right: "d"
-    restart: "r"
-    quit: "q"
 
 ## Game Mechanics:
 
