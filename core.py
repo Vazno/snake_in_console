@@ -2,10 +2,11 @@ from random import choice
 from typing import Tuple
 import threading
 import time
+import colorama
 from keyboard import is_pressed
 from copy import deepcopy
 
-from utils import has_duplicate_lists, cls
+from utils import has_duplicate_lists, cls, replace_console_text
 
 BINDS = {"up": "w",
 		"down": "s",
@@ -14,9 +15,10 @@ BINDS = {"up": "w",
 
 
 class Piece:
-	def __init__(self, name, look) -> None:
+	def __init__(self, name, look, color: colorama.Fore) -> None:
 		self.look = look
 		self.name = name
+		self.color = color
 
 	def __repr__(self) -> str:
 		return repr(self.look)
@@ -25,15 +27,18 @@ class Piece:
 		return self.look
 
 class Graphic:
-	def __init__(self, snake, empty_cell, apple) -> None:
-		self.snake = Piece("snake", snake)
-		self.empty_cell = Piece("empty_cell", empty_cell)
-		self.apple = Piece("apple", apple)
+	def __init__(self, snake, empty_cell, apple, border) -> None:
+		self.snake = Piece("snake", snake, colorama.Fore.GREEN)
+		self.empty_cell = Piece("empty_cell", empty_cell, colorama.Fore.RESET)
+		self.apple = Piece("apple", apple, colorama.Fore.RED)
+		self.border = Piece("border", border, colorama.Fore.LIGHTBLACK_EX)
 
 class Game:
-	def __init__(self, size: Tuple[int, int], graphic: Graphic) -> None:
+	def __init__(self, size: Tuple[int, int], graphic: Graphic, tick: int = 0.01, fps: int = 75) -> None:
 		cls()
 		self.run = True
+		self.tick = tick
+		self.fps = fps
 		self._size = size
 		self.graphic = graphic
 		self.matrix = list()
@@ -87,6 +92,7 @@ class Game:
 
 	def move_snake(self):
 		self.set_snake_direction_limits()
+
 		# Deleting moved tail of snake
 		if len(self.snake_positions) > 1 and self.snake_moved and self.collected_apples_length == 0:
 			self.matrix[self.snake_positions[0][0]][self.snake_positions[0][1]] = self.graphic.empty_cell
@@ -170,14 +176,28 @@ class Game:
 			self.matrix[y][x] = self.graphic.apple
 
 	def print_matrix(self):
-		cls()
-		text = "\n"
-		for row in self.matrix:
-			text += "".join([str(p) for p in row]) + "\n"
-		print(text)
+		while self.run:
+			time.sleep(1/self.fps)
+			text = "\n"
+			new_matrix = deepcopy(self.matrix)
+			for row in new_matrix:
+				row.insert(0, self.graphic.border)
+				row.append(self.graphic.border)
+			
+			new_matrix.append([self.graphic.border]*(len(self.matrix[0])+2))
+			new_matrix.insert(0, [self.graphic.border]*(len(self.matrix[0])+2))
+			
+			for row in new_matrix:
+				text += "".join([str(p) for p in row]) + "\n"
+
+			for piece in vars(self.graphic):
+				piece = self.graphic.__getattribute__(piece)
+				colored_string = piece.color + piece.look + colorama.Fore.RESET
+				text = text.replace(piece.look, colored_string)
+			replace_console_text(text)
 
 	def button_loop(self):
-		while True:
+		while self.run:
 			if is_pressed(BINDS['up']):
 				if not self.cant_go_up:
 					self.snake_direction = "up"
@@ -204,8 +224,7 @@ class Game:
 		apple_timer = 0
 		snake_movement_timer = 0
 		self.run = True
-		while self.run == True:
-			self.print_matrix()
+		while self.run:
 			time.sleep(tick)
 
 			# Apple generation
@@ -221,12 +240,18 @@ class Game:
 				self.move_snake()
 		print("You lost")
 
-if __name__ == "__main__":
-	game = Game((70, 30), Graphic("*", "x", "@"))
-	game.snake_movement_repeat = 0.015
-	game.apple_spawn_repeat = 0.1
+	def start(self):
+		t1 = threading.Thread(target=self.mainloop, args=[self.tick])
+		t1.start()
+		t2 = threading.Thread(target=self.button_loop)
+		t2.start()
+		t2 = threading.Thread(target=self.print_matrix)
+		t2.start()
 
-	t1 = threading.Thread(target=game.mainloop, args=[0.01])
-	t1.start()
-	t2 = threading.Thread(target=game.button_loop)
-	t2.start()
+
+if __name__ == "__main__":
+	game = Game((70, 30), Graphic("*", " ", "@", "#"))
+	game.snake_movement_repeat = 0.15
+	game.apple_spawn_repeat = 1
+	game.tick = 0.1
+	game.start()
