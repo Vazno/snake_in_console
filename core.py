@@ -34,10 +34,10 @@ class Graphic:
 		self.border = Piece("border", border, colorama.Fore.LIGHTBLACK_EX)
 
 class Game:
-	def __init__(self, size: Tuple[int, int], graphic: Graphic, tick: int = 0.01, fps: int = 75) -> None:
+	def __init__(self, size: Tuple[int, int], graphic: Graphic, fps: int = 75, show_score: bool = True) -> None:
 		cls()
+		self.show_score = show_score
 		self.run = True
-		self.tick = tick
 		self.fps = fps
 		self._size = size
 		self.graphic = graphic
@@ -52,10 +52,24 @@ class Game:
 		self.snake_positions = [[-1, 0], [-2, 0], [-3, 0], [-4, 0], [-5, 0]]
 
 		self.snake_direction = "up"
+		self.set_snake_direction_limits()
 
 		# Says how many apples were collected, and snake's body should grow to that x number
 		self.collected_apples_length = 0
 
+		self.__apples_collected = 0
+
+	@property
+	def size(self):
+		return self._size
+	
+	@size.setter
+	def size(self, x: Tuple[int, int]):
+		self._size = x
+		self.__generate_matrix()
+
+	def gameover(self):
+		self.run = False
 
 	def set_snake_direction_limits(self):
 		if self.snake_direction == "up":
@@ -77,18 +91,6 @@ class Game:
 			self.cant_go_down = False
 			self.cant_go_left = False
 			self.cant_go_right = True
-
-	@property
-	def size(self):
-		return self._size
-	
-	@size.setter
-	def size(self, x: Tuple[int, int]):
-		self._size = x
-		self.__generate_matrix()
-
-	def gameover(self):
-		self.run = False
 
 	def move_snake(self):
 		self.set_snake_direction_limits()
@@ -134,13 +136,14 @@ class Game:
 
 		self.snake_moved = True
 
-		# Drawing snake
+		# Adding snake to matrix
 		for position in self.snake_positions:
 			if has_duplicate_lists(self.snake_positions):
 				self.gameover()
 				return
 			if self.matrix[position[0]][position[1]] == self.graphic.apple:
 				self.collected_apples_length += 1
+				self.__apples_collected += 1
 			self.matrix[position[0]][position[1]] = self.graphic.snake
 
 	def __generate_matrix(self):
@@ -150,13 +153,6 @@ class Game:
 			self.matrix.append(list())
 			for x in range(self.size[0]):
 				self.matrix[-1].append(self.graphic.empty_cell)
-
-	def refresh_matrix(self):
-		'''Refreshes the matrix, and replaces the .look attribute of piece'''
-		for row in self.matrix:
-			for piece in row:
-				# Replacing Piece with the new Piece that has different attribute look
-				piece = self.graphic.__getattribute__(piece.name)
 
 	def generate_apples(self):
 		'''Randomly generates one apple on the empty_cell'''
@@ -175,7 +171,7 @@ class Game:
 			y, x = choice(empty_cells)
 			self.matrix[y][x] = self.graphic.apple
 
-	def print_matrix(self):
+	def print_matrix_loop(self):
 		while self.run:
 			time.sleep(1/self.fps)
 			text = "\n"
@@ -194,6 +190,11 @@ class Game:
 				piece = self.graphic.__getattribute__(piece)
 				colored_string = piece.color + piece.look + colorama.Fore.RESET
 				text = text.replace(piece.look, colored_string)
+
+			if self.show_score:
+				text += "\n"
+				text += f"| Score: {self.__apples_collected} | Snake length: {len(self.snake_positions)} |\n"
+			self.text = text
 			replace_console_text(text)
 
 	def button_loop(self):
@@ -214,44 +215,41 @@ class Game:
 				if not self.cant_go_right:
 					self.snake_direction = "right"
 
-	def mainloop(self, tick: int = 0.01):
-		self.default_settings = deepcopy([self.graphic,
-							self.snake_direction, self.snake_positions,
-							self.size, self.collected_apples_length])
-		
-		self.set_snake_direction_limits()
-
-		apple_timer = 0
-		snake_movement_timer = 0
-		self.run = True
+	def snake_loop(self):
 		while self.run:
-			time.sleep(tick)
-
-			# Apple generation
-			apple_timer += tick
-			if apple_timer >= self.apple_spawn_repeat:
-				apple_timer = 0
-				self.generate_apples()
-
 			# Snake movement
-			snake_movement_timer += tick
-			if snake_movement_timer >= self.snake_movement_repeat:
-				snake_movement_timer = 0
-				self.move_snake()
-		print("You lost")
+			time.sleep(self.snake_movement_repeat)
+			self.move_snake()
+
+	def apple_loop(self):
+		while self.run:
+			# Apple generation
+			time.sleep(self.apple_spawn_repeat)
+			self.generate_apples()
 
 	def start(self):
-		t1 = threading.Thread(target=self.mainloop, args=[self.tick])
+		t1 = threading.Thread(target=self.snake_loop)
 		t1.start()
+
 		t2 = threading.Thread(target=self.button_loop)
 		t2.start()
-		t2 = threading.Thread(target=self.print_matrix)
-		t2.start()
+
+		t3 = threading.Thread(target=self.print_matrix_loop)
+		t3.start()
+
+		t4 = threading.Thread(target=self.apple_loop)
+		t4.start()
+
+		t1.join()
+		t2.join()
+		t3.join()
+		t4.join()
+		print("You lost")
+
 
 
 if __name__ == "__main__":
-	game = Game((70, 30), Graphic("*", " ", "@", "#"))
-	game.snake_movement_repeat = 0.15
+	game = Game((70, 30), Graphic("*", " ", "@", "#"), fps=100)
+	game.snake_movement_repeat = 0.25
 	game.apple_spawn_repeat = 1
-	game.tick = 0.1
 	game.start()
