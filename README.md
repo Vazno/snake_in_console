@@ -23,7 +23,7 @@ In this game, the snake grows by collecting apples that are randomly placed on t
 ## Running the game:
 To run the game, simply run the python file in your terminal:
 
-`python snake_game.py`
+`python core.py`
 
 ## Customization:
 You can customize the game by changing the values in the following variables:
