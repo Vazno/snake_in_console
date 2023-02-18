@@ -1,6 +1,9 @@
-# Snake Game
+<h1 align="center">Snake Game</h1>
+<h5 align="center">This is a snake game written in python using OOP and threading.</h5>
+<p align="center">
+    <img src="https://user-images.githubusercontent.com/96925396/219864957-ce4355e7-aa7e-41b8-84bf-344a77d01d6e.PNG">
 
-This is a snake game written in python using OOP.
+---
 
 Use the following keys to control the snake:
 
